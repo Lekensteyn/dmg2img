@@ -106,4 +106,8 @@ CHANGELOG:
         * Added support for a rare case scenario of koly block being at the
           the beginning of the image (thanks to Friik)
 
+1.6.4  25 April 2012
+        * Compilation bugfix (Linux)
+
+		  
 http://vu1tur.eu.org/dmg2img

@@ -16,7 +16,7 @@
  */
 
 #define _FILE_OFFSET_BITS 64
-#define VERSION "dmg2img v1.6.3 (c) vu1tur (to@vu1tur.eu.org)"
+#define VERSION "dmg2img v1.6.4 (c) vu1tur (to@vu1tur.eu.org)"
 #define USAGE "\
 Usage: dmg2img [-l] [-p N] [-s] [-v] [-V] [-d] <input.dmg> [<output.img>]\n\
 or     dmg2img [-l] [-p N] [-s] [-v] [-V] [-d] -i <input.dmg> -o <output.img>\n\n\
@@ -290,7 +290,7 @@ int main(int argc, char *argv[])
 			partname_begin = strstr(data_begin, name_key);
 			partname_begin = strstr(partname_begin, name_begin) + strlen(name_begin);
 			partname_end = strstr(partname_begin, name_end);
-			ZeroMemory(partname, 255);
+			memset(partname, 0, 255);
 			memcpy(partname, partname_begin, partname_end - partname_begin);
 			if (verbose >= 2) {
 				printf("partition %d: begin=%d, size=%d, decoded=%d\n", i, (int)(data_begin - blkx), data_size, tmplen);
