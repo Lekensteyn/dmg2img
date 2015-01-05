@@ -166,6 +166,20 @@ void read_kolyblk(FILE* F, struct _kolyblk* k)
 	k->SectorCount = convert_int64(k->SectorCount);
 }
 
+void print_mishblk(FILE *f, struct _mishblk *m)
+{
+	fprintf(f, "%-28s: %08"  PRIx32 "\n", "BlocksSignature", m->BlocksSignature);
+	fprintf(f, "%-28s: %08"  PRIx32 "\n", "InfoVersion", m->InfoVersion);
+	fprintf(f, "%-28s: %016" PRIx64 "\n", "FirstSectorNumber", m->FirstSectorNumber);
+	fprintf(f, "%-28s: %016" PRIx64 "\n", "SectorCount", m->SectorCount);
+	fprintf(f, "%-28s: %016" PRIx64 "\n", "DataStart", m->DataStart);
+	fprintf(f, "%-28s: %08"  PRIx32 "\n", "DecompressedBufferRequested", m->DecompressedBufferRequested);
+	fprintf(f, "%-28s: %08"  PRIx32 "\n", "BlocksDescriptor", m->BlocksDescriptor);
+	fprintf(f, "%-28s: %08"  PRIx32 "\n", "ChecksumType", m->ChecksumType);
+	fprintf(f, "%-28s: %08"  PRIx32 "\n", "Checksum", m->Checksum);
+	fprintf(f, "%-28s: %08"  PRIx32 "\n", "BlocksRunCount", m->BlocksRunCount);
+}
+
 void fill_mishblk(char* c, struct _mishblk* m)
 {
 	memset(m, 0, sizeof(struct _mishblk));

@@ -383,7 +383,9 @@ int main(int argc, char *argv[])
 		add_offs = in_offs_add;
 		block_type = 0;
 		if (debug) {
-			fprintf(FDBG, "\n   run..... ..type.... ..reserved ..sectorStart..... ..sectorCount..... ..compOffset...... ..compLength......\n");
+			fprintf(FDBG, "\n");
+			print_mishblk(FDBG, &parts[i]);
+			fprintf(FDBG, "   run..... ..type.... ..reserved ..sectorStart..... ..sectorCount..... ..compOffset...... ..compLength......\n");
 		}
 		unsigned long bi = 0;
 		while (block_type != BT_TERM && offset < parts[i].BlocksRunCount * 0x28) {
