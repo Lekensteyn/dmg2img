@@ -1,0 +1,34 @@
+.TH "vfdecrypt" 1
+.SH NAME
+vfdecrypt \- decrypt encrypted filevault disk images
+.SH SYNOPSIS
+.B vfdecrypt
+-i in-file -p password -o out-file
+.SH DESCRIPTION
+vile fault decrypts encrypted Mac OS X disk image files. It supports both version 1 and 2 of the non-documented proprietary format.
+.SH OPTIONS
+.TP
+.B \-i
+Path to the input file. Usually an encrypted disk image. It's also kosher to redirect from STDIN.
+.TP
+.B \-e
+Try to extract key from input file.
+.TP
+.B \-k
+The alphanumeric key you wish to use to decrypt the disk file.
+.TP
+.B \-p
+The password you wish to use to decrypt the disk file.
+.TP
+.B \-o
+The output file. It's also kosher to redirect to STDOUT.
+.SH "SEE ALSO"
+vfcrack(1)
+.SH BUGS
+Feel free to report them or to submit patches.
+.SH AUTHORS
+Ralf-Philipp Weinmann <ralf@coderpunks.org>
+.TP
+David Hulton <dhulton@openciphers.org>
+.TP
+Jacob Appelbaum <jacob@appelbaum.net> 
