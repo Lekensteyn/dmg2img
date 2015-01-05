@@ -6,7 +6,7 @@ This tool handles zlib and bzip2 compressed dmg images.
 
 
 USAGE:
-    dmg2img [-s] [-v] [-V] [-d] <input.dmg> [<output.img>]
+    dmg2img [-l] [-p N] [-s] [-v] [-V] [-d] <input.dmg> [<output.img>]
 or
     dmg2img -i <input.dmg> -o <output.img>
     
@@ -100,11 +100,10 @@ CHANGELOG:
         * Fixed a bug in processing a terminal block type.
         * Added periodic flushing of debug log file.
 
-People looking for a more professional tool should take a look to
-the libdmg library and related utilities at
-  http://github.com/planetbeing/libdmg-hfsplus/tree/master
-  http://www.shanemcc.co.uk/libdmg/
-(the libdmg code is still reported to be experimental, though, and 
-it is also much bigger than dmg2img.)
+1.6.3  07 April 2012
+        * Added option -l to list partitions
+        * Added option -p to extract only specific partition
+        * Added support for a rare case scenario of koly block being at the
+          the beginning of the image (thanks to Friik)
 
-Upgrade to 1.6.2 is strongly encouraged.
+http://vu1tur.eu.org/dmg2img

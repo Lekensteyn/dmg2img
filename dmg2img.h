@@ -30,6 +30,10 @@
 #define BT_COMMENT 0x7ffffffe
 #define BT_TERM 0xffffffff
 
+#ifdef __MINGW32__
+#define fseeko fseeko64
+#endif
+
 z_stream z;
 bz_stream bz;
 
@@ -40,6 +44,9 @@ const char list_end[] = "</array>";
 const char chunk_begin[] = "<data>";
 const char chunk_end[] = "</data>";
 const char blkx_begin[] = "<key>blkx</key>";
+const char name_key[] = "<key>Name</key>";
+const char name_begin[] = "<string>";
+const char name_end[] = "</string>";
 
 int convert_int(int i)
 {

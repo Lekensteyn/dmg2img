@@ -16,11 +16,12 @@
  */
 
 #define _FILE_OFFSET_BITS 64
-#define VERSION "dmg2img v1.6.2 is derived from dmg2iso by vu1tur (to@vu1tur.eu.org)"
+#define VERSION "dmg2img v1.6.3 (c) vu1tur (to@vu1tur.eu.org)"
 #define USAGE "\
-Usage: dmg2img [-s] [-v] [-V] [-d] <input.dmg> [<output.img>]\n\
-or     dmg2img [-s] [-v] [-V] [-d] -i <input.dmg> -o <output.img>\n\n\
-Options: -s (silent) -v (verbose) -V (extremely verbose) -d (debug)"
+Usage: dmg2img [-l] [-p N] [-s] [-v] [-V] [-d] <input.dmg> [<output.img>]\n\
+or     dmg2img [-l] [-p N] [-s] [-v] [-V] [-d] -i <input.dmg> -o <output.img>\n\n\
+Options: -s (silent) -v (verbose) -V (extremely verbose) -d (debug)\n\
+         -l (list partitions) -p N (extract only partition N)"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,6 +39,8 @@ Options: -s (silent) -v (verbose) -V (extremely verbose) -d (debug)"
 FILE *FIN = NULL, *FOUT = NULL, *FDBG = NULL;
 int debug = 0;
 int verbose = 1;
+int listparts = 0;
+int extractpart = -1;
 double percent;
 unsigned int offset;
 
@@ -99,7 +102,9 @@ int main(int argc, char *argv[])
 	unsigned int blkx_size;
 	struct _mishblk *parts = NULL;
 	char *data_begin = NULL, *data_end = NULL;
+	char *partname_begin = NULL, *partname_end = NULL;
 	char *mish_begin = NULL;
+	char partname[255] = "";
 	unsigned int *partlen = NULL;
 	unsigned int data_size;
 	uint64_t out_offs, out_size, in_offs, in_size, in_offs_add, add_offs, to_read,
@@ -117,6 +122,10 @@ int main(int argc, char *argv[])
 			verbose = 3;
 		else if (!strcmp(argv[i], "-d"))
 			debug = 1;
+		else if (!strcmp(argv[i], "-l"))
+			listparts = 1;
+		else if (!strcmp(argv[i], "-p"))
+			sscanf(argv[++i], "%d", &extractpart);
 		else if (!strcmp(argv[i], "-i") && i < argc - 1)
 			input_file = argv[++i];
 		else if (!strcmp(argv[i], "-o") && i < argc - 1)
@@ -166,8 +175,12 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 	//parsing koly block
-		fseeko(FIN, -0x200, SEEK_END);
+	fseeko(FIN, -0x200, SEEK_END);
 	read_kolyblk(FIN, &kolyblk);
+	if (kolyblk.Signature != 0x6b6f6c79) {
+		fseeko(FIN, 0, SEEK_SET);
+		read_kolyblk(FIN, &kolyblk);
+	}
 	char szSignature[5];
 	szSignature[4] = '\0';
 	int rSignature = convert_int(kolyblk.Signature);
@@ -201,14 +214,15 @@ int main(int argc, char *argv[])
 		error_dmg_corrupted();
 	}
 	if (verbose) {
-		printf("%s --> %s\n\n", input_file, output_file);
+		if (input_file && output_file)
+			printf("%s --> %s\n\n", input_file, listparts ? "(partition list)" : output_file);
 	}
 	if (debug)
 		printf("Debug info will be written to dmg2img.log\n\n");
 
 	if (kolyblk.XMLOffset != 0 && kolyblk.XMLLength != 0) {
 		//We have a plist to parse
-			if (verbose)
+			if (verbose > 1)
 			printf("reading property list, %llu bytes from address %llu ...\n", (unsigned long long)kolyblk.XMLLength, (unsigned long long)kolyblk.XMLOffset);
 
 		plist = (char *)malloc(kolyblk.XMLLength + 1);
@@ -272,9 +286,18 @@ int main(int argc, char *argv[])
 			memcpy(parts[i].Data, base64data + 0xCC, parts[i].BlocksRunCount * 0x28);
 
 			free(base64data);
-
-			if (verbose >= 2)
+	
+			partname_begin = strstr(data_begin, name_key);
+			partname_begin = strstr(partname_begin, name_begin) + strlen(name_begin);
+			partname_end = strstr(partname_begin, name_end);
+			ZeroMemory(partname, 255);
+			memcpy(partname, partname_begin, partname_end - partname_begin);
+			if (verbose >= 2) {
 				printf("partition %d: begin=%d, size=%d, decoded=%d\n", i, (int)(data_begin - blkx), data_size, tmplen);
+				if (listparts)
+					printf("             %s\n", partname);
+			} else if (listparts)
+				printf("partition %d: %s\n", i, partname);
 		}
 	} else if (kolyblk.RsrcForkOffset != 0 && kolyblk.RsrcForkLength != 0) {
 		//We have a binary resource fork to parse
@@ -313,6 +336,24 @@ int main(int argc, char *argv[])
 	} else {
 		error_dmg_corrupted();
 	}
+	
+	if (listparts || extractpart > partnum-1) {
+		if (extractpart > partnum-1)
+			printf("partition %d not found\n", extractpart);
+		
+		for (i = 0; i < partnum; i++)
+			if (parts[i].Data != NULL)
+				free(parts[i].Data);
+		if (parts != NULL)
+			free(parts);
+		if (plist != NULL)
+			free(plist);
+		if (blkx != NULL)
+			free(blkx);
+		
+		return 0;
+	}
+		
 	if (verbose)
 		printf("\ndecompressing:\n");
 
@@ -328,9 +369,9 @@ int main(int argc, char *argv[])
 	bz.bzfree = NULL;
 	bz.opaque = NULL;
 
-	in_offs = add_offs = in_offs_add = 0;
+	in_offs = add_offs = in_offs_add = kolyblk.DataForkOffset;
 
-	for (i = 0; i < partnum && in_offs < kolyblk.DataForkLength - kolyblk.DataForkOffset; i++) {
+	for (i = extractpart==-1?0:extractpart; i < (extractpart==-1?partnum:extractpart+1) && in_offs < kolyblk.DataForkLength - kolyblk.DataForkOffset; i++) {
 		if (verbose)
 			printf("opening partition %d ...           ", i);
 		if (verbose >= 3)
@@ -549,13 +590,13 @@ int main(int argc, char *argv[])
 				}
 				if (verbose >= 3)
 					printf("null bytes (out_size=%llu)\n",
-					       (unsigned long long)out_size);
+						   (unsigned long long)out_size);
 			} else if (block_type == BT_COMMENT) {
 				if (verbose >= 3)
 					printf("0x%08x (in_addr=%llu in_size=%llu out_addr=%llu out_size=%llu) comment %s\n", block_type, (unsigned long long)in_offs,
-					       (unsigned long long)in_size,
-					       (unsigned long long)out_offs,
-					       (unsigned long long)out_size, reserved);
+						   (unsigned long long)in_size,
+						   (unsigned long long)out_offs,
+						   (unsigned long long)out_size, reserved);
 			} else if (block_type == BT_TERM) {
 				if (in_offs == 0 && partnum > i+1) {
 					if (convert_char8((unsigned char *)parts[i+1].Data + 24) != 0)
@@ -607,7 +648,7 @@ int main(int argc, char *argv[])
 		fclose(FDBG);
 
 #if defined(__linux__)
-	if (verbose)
+	if (verbose && extractpart > -1)
 		print_mountcmd(output_file);
 #endif
 

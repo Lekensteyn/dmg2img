@@ -137,7 +137,7 @@ BuildRequires:			openssl-devel
 #
 Name:			dmg2img
 Summary:		Converts dmg archives to HFS+ images
-Version:		1.3
+Version:		1.6.3
 Release:		4.1
 Group:			%{group}
 License:		GPLv2
