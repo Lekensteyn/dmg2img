@@ -109,5 +109,7 @@ CHANGELOG:
 1.6.4  25 April 2012
         * Compilation bugfix (Linux)
 
+1.6.5  23 July 2013
+        * Fixed a bug in handling some types of dmg files
 		  
 http://vu1tur.eu.org/dmg2img

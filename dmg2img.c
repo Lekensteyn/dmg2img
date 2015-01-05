@@ -16,7 +16,7 @@
  */
 
 #define _FILE_OFFSET_BITS 64
-#define VERSION "dmg2img v1.6.4 (c) vu1tur (to@vu1tur.eu.org)"
+#define VERSION "dmg2img v1.6.5 (c) vu1tur (to@vu1tur.eu.org)"
 #define USAGE "\
 Usage: dmg2img [-l] [-p N] [-s] [-v] [-V] [-d] <input.dmg> [<output.img>]\n\
 or     dmg2img [-l] [-p N] [-s] [-v] [-V] [-d] -i <input.dmg> -o <output.img>\n\n\
@@ -600,9 +600,9 @@ int main(int argc, char *argv[])
 			} else if (block_type == BT_TERM) {
 				if (in_offs == 0 && partnum > i+1) {
 					if (convert_char8((unsigned char *)parts[i+1].Data + 24) != 0)
-						in_offs_add = 0;
+						in_offs_add = kolyblk.DataForkOffset;
 				} else
-					in_offs_add = 0;
+					in_offs_add = kolyblk.DataForkOffset;
 
 				if (verbose >= 3)
 					printf("terminator\n");
