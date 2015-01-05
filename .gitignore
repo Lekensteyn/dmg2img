@@ -1,0 +1,4 @@
+*.o
+vfdecrypt
+dmg2img
+.*.sw?
