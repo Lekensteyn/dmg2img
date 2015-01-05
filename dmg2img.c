@@ -371,7 +371,7 @@ int main(int argc, char *argv[])
 
 	in_offs = add_offs = in_offs_add = kolyblk.DataForkOffset;
 
-	for (i = extractpart==-1?0:extractpart; i < (extractpart==-1?partnum:extractpart+1) && in_offs < kolyblk.DataForkLength - kolyblk.DataForkOffset; i++) {
+	for (i = extractpart==-1?0:extractpart; i < (extractpart==-1?partnum:extractpart+1) && in_offs <= kolyblk.DataForkLength - kolyblk.DataForkOffset; i++) {
 		if (verbose)
 			printf("opening partition %d ...           ", i);
 		if (verbose >= 3)
