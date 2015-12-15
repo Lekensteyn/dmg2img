@@ -26,6 +26,7 @@ Options: -s (silent) -v (verbose) -V (extremely verbose) -d (debug)\n\
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <assert.h>
 #include <inttypes.h>
 #include "dmg2img.h"
@@ -157,12 +158,12 @@ int main(int argc, char *argv[])
 		FDBG = fopen("dmg2img.log", "wb");
 		if (FDBG == NULL) {
 			debug = 0;
-			printf("ERROR: Can't create dmg2img.log. No debug info will be written.\n");
+			perror("Failed to create dmg2img.log");
 		}
 	}
 	FIN = fopen(input_file, "rb");
 	if (FIN == NULL) {
-		printf("ERROR: Can't open input file %s\n", input_file);
+		fprintf(stderr, "Can't open input file %s: %s\n", input_file, strerror(errno));
 		return 0;
 	}
 	if (output_file)
@@ -170,7 +171,7 @@ int main(int argc, char *argv[])
 	else
 		FOUT = NULL;
 	if (FOUT == NULL) {
-		printf("ERROR: Can't create output file %s\n", output_file);
+		fprintf(stderr, "Can't create output file %s: %s\n", output_file, strerror(errno));
 		fclose(FIN);
 		return 1;
 	}
@@ -245,7 +246,7 @@ int main(int argc, char *argv[])
 
 		if (!strstr(plist, plist_begin) ||
 		    !strstr(&plist[kolyblk.XMLLength - 20], plist_end)) {
-			printf("ERROR: Property list is corrupted.\n");
+			fprintf(stderr, "Property list is corrupted.\n");
 			exit(-1);
 		}
 		data_begin = blkx;
@@ -447,8 +448,9 @@ int main(int argc, char *argv[])
 			if (block_type == BT_ZLIB) {
 				if (verbose >= 3)
 					printf("zlib inflate (in_addr=%llu in_size=%llu out_addr=%llu out_size=%llu)\n", (unsigned long long)in_offs, (unsigned long long)in_size, (unsigned long long)out_offs, (unsigned long long)out_size);
-				if (inflateInit(&z) != Z_OK) {
-					printf("ERROR: Can't initialize inflate stream\n");
+				err = inflateInit(&z);
+				if (err != Z_OK) {
+					fprintf(stderr, "Can't initialize inflate stream: %d\n", err);
 					return 1;
 				}
 				fseeko(FIN, in_offs + add_offs, SEEK_SET);
@@ -463,7 +465,7 @@ int main(int argc, char *argv[])
 					z.avail_in = fread(tmp, 1, chunk, FIN);
 					if (ferror(FIN)) {
 						(void)inflateEnd(&z);
-						printf("ERROR: reading file %s \n", input_file);
+						fprintf(stderr, "Reading file %s failed: %s\n", input_file, strerror(errno));
 						return 1;
 					}
 					if (z.avail_in == 0)
@@ -481,13 +483,13 @@ int main(int argc, char *argv[])
 						case Z_DATA_ERROR:
 						case Z_MEM_ERROR:
 							(void)inflateEnd(&z);
-							printf("ERROR: Inflation failed\n");
+							fprintf(stderr, "Inflation failed\n");
 							return 1;
 						}
 						to_write = CHUNKSIZE - z.avail_out;
 						if (fwrite(otmp, 1, to_write, FOUT) != to_write || ferror(FOUT)) {
 							(void)inflateEnd(&z);
-							printf("ERROR: writing file %s \n", output_file);
+							fprintf(stderr, "Writing file %s failed: %s\n", output_file, strerror(errno));
 							return 1;
 						}
 					} while (z.avail_out == 0);
@@ -498,7 +500,7 @@ int main(int argc, char *argv[])
 				if (verbose >= 3)
 					printf("bzip2 decompress (in_addr=%llu in_size=%llu out_addr=%llu out_size=%llu)\n", (unsigned long long)in_offs, (unsigned long long)in_size, (unsigned long long)out_offs, (unsigned long long)out_size);
 				if (BZ2_bzDecompressInit(&bz, 0, 0) != BZ_OK) {
-					printf("ERROR: Can't initialize inflate stream\n");
+					fprintf(stderr, "Can't initialize inflate stream: %s\n", strerror(errno));
 					return 1;
 				}
 				fseeko(FIN, in_offs + add_offs, SEEK_SET);
@@ -513,7 +515,7 @@ int main(int argc, char *argv[])
 					bz.avail_in = fread(tmp, 1, chunk, FIN);
 					if (ferror(FIN)) {
 						(void)BZ2_bzCompressEnd(&bz);
-						printf("ERROR: reading file %s \n", input_file);
+						fprintf(stderr, "reading file %s failed: %s\n", input_file, strerror(errno));
 						return 1;
 					}
 					if (bz.avail_in == 0)
@@ -530,13 +532,13 @@ int main(int argc, char *argv[])
 						case BZ_DATA_ERROR_MAGIC:
 						case BZ_MEM_ERROR:
 							(void)BZ2_bzDecompressEnd(&bz);
-							printf("ERROR: Inflation failed\n");
+							fprintf(stderr, "Inflation failed\n");
 							return 1;
 						}
 						to_write = CHUNKSIZE - bz.avail_out;
 						if (fwrite(otmp, 1, to_write, FOUT) != to_write || ferror(FOUT)) {
 							(void)BZ2_bzDecompressEnd(&bz);
-							printf("ERROR: writing file %s \n", output_file);
+							fprintf(stderr, "writing file %s failed: %s\n", output_file, strerror(errno));
 							return 1;
 						}
 					} while (bz.avail_out == 0);
@@ -552,13 +554,13 @@ int main(int argc, char *argv[])
 					chunk = to_read > CHUNKSIZE ? CHUNKSIZE : to_read;
 					to_write = fread(tmp, 1, chunk, FIN);
 					if (ferror(FIN) || to_write < chunk) {
-						printf("ERROR: reading file %s\n", input_file);
+						fprintf(stderr, "Reading file %s failed: %s\n", input_file, strerror(errno));
 						return 1;
 					}
 					int bytes_written;
 					int read_from_input = adc_decompress(to_write, tmp, DECODEDSIZE, dtmp, &bytes_written);
 					if (fwrite(dtmp, 1, bytes_written, FOUT) != bytes_written || ferror(FOUT)) {
-						printf("ERROR: writing file %s \n", output_file);
+						fprintf(stderr, "writing file %s failed: %s\n", output_file, strerror(errno));
 						return 1;
 					}
 					to_read -= read_from_input;
@@ -573,11 +575,11 @@ int main(int argc, char *argv[])
 						chunk = to_read;
 					to_write = fread(tmp, 1, chunk, FIN);
 					if (ferror(FIN) || to_write < chunk) {
-						printf("ERROR: reading file %s \n", input_file);
+						fprintf(stderr, "reading file %s failed: %s\n", input_file, strerror(errno));
 						return 1;
 					}
 					if (fwrite(tmp, 1, chunk, FOUT) != chunk || ferror(FOUT)) {
-						printf("ERROR: writing file %s \n", output_file);
+						fprintf(stderr, "writing file %s failed: %s\n", output_file, strerror(errno));
 						return 1;
 					}
 					//copy
@@ -594,7 +596,7 @@ int main(int argc, char *argv[])
 					else
 						chunk = to_write;
 					if (fwrite(tmp, 1, chunk, FOUT) != chunk || ferror(FOUT)) {
-						printf("ERROR: writing file %s \n", output_file);
+						fprintf(stderr, "writing file %s failed: %s\n", output_file, strerror(errno));
 						return 1;
 					}
 					to_write -= chunk;
