@@ -264,8 +264,7 @@ int main(int argc, char *argv[])
 				break;
 			data_size = data_end - data_begin;
 			i = partnum;
-			++partnum;
-			parts = (struct _mishblk *)realloc(parts, partnum * sizeof(struct _mishblk));
+			parts = (struct _mishblk *)realloc(parts, (partnum + 1) * sizeof(struct _mishblk));
 			if (!parts)
 				mem_overflow();
 
@@ -279,8 +278,11 @@ int main(int argc, char *argv[])
 			cleanup_base64(base64data, data_size);
 			decode_base64(base64data, strlen(base64data), base64data, &tmplen);
 			fill_mishblk(base64data, &parts[i]);
-			if (parts[i].BlocksSignature != 0x6D697368)
+			if (parts[i].BlocksSignature != 0x6D697368) {
+				if (verbose >= 3)
+					printf("Unrecognized block signature %08X", parts[i].BlocksSignature);
 				break;
+			}
 
 			parts[i].Data = (char *)malloc(parts[i].BlocksRunCount * 0x28);
 			if (!parts[i].Data)
@@ -289,6 +291,7 @@ int main(int argc, char *argv[])
 
 			free(base64data);
 	
+			++partnum;
 			partname_begin = strstr(data_begin, name_key);
 			partname_begin = strstr(partname_begin, name_begin) + strlen(name_begin);
 			partname_end = strstr(partname_begin, name_end);
