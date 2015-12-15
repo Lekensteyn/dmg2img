@@ -113,6 +113,7 @@ int main(int argc, char *argv[])
 	char reserved[5] = "    ";
 	char sztype[64] = "";
 	unsigned int block_type, dw_reserved;
+	unsigned long long total_written = 0;
 
 	for (i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "-s"))
@@ -393,8 +394,8 @@ int main(int argc, char *argv[])
 			block_type = convert_char4((unsigned char *)parts[i].Data + offset);
 			dw_reserved = convert_char4((unsigned char *)parts[i].Data + offset + 4);
 			memcpy(&reserved, parts[i].Data + offset + 4, 4);
-			out_offs = convert_char8((unsigned char *)parts[i].Data + offset + 8) * 0x200;
-			out_size = convert_char8((unsigned char *)parts[i].Data + offset + 16) * 0x200;
+			out_offs = convert_char8((unsigned char *)parts[i].Data + offset + 8) * SECTOR_SIZE;
+			out_size = convert_char8((unsigned char *)parts[i].Data + offset + 16) * SECTOR_SIZE;
 			in_offs = convert_char8((unsigned char *)parts[i].Data + offset + 24);
 			in_size = convert_char8((unsigned char *)parts[i].Data + offset + 32);
 			if (block_type != BT_TERM)
@@ -433,8 +434,8 @@ int main(int argc, char *argv[])
 					(unsigned long)bi,
 					(unsigned long)block_type,
 					(unsigned long)dw_reserved,
-					(unsigned long long)out_offs / 0x200,
-					(unsigned long long)out_size / 0x200,
+					(unsigned long long)out_offs / SECTOR_SIZE,
+					(unsigned long long)out_size / SECTOR_SIZE,
 					(unsigned long long)in_offs,
 					(unsigned long long)in_size,
 					sztype
@@ -492,6 +493,7 @@ int main(int argc, char *argv[])
 							fprintf(stderr, "Writing file %s failed: %s\n", output_file, strerror(errno));
 							return 1;
 						}
+						total_written += to_write;
 					} while (z.avail_out == 0);
 				} while (err != Z_STREAM_END);
 
@@ -541,6 +543,7 @@ int main(int argc, char *argv[])
 							fprintf(stderr, "writing file %s failed: %s\n", output_file, strerror(errno));
 							return 1;
 						}
+						total_written += to_write;
 					} while (bz.avail_out == 0);
 				} while (err != BZ_STREAM_END);
 
@@ -563,6 +566,7 @@ int main(int argc, char *argv[])
 						fprintf(stderr, "writing file %s failed: %s\n", output_file, strerror(errno));
 						return 1;
 					}
+					total_written += bytes_written;
 					to_read -= read_from_input;
 				}
 			} else if (block_type == BT_RAW) {
@@ -582,6 +586,7 @@ int main(int argc, char *argv[])
 						fprintf(stderr, "writing file %s failed: %s\n", output_file, strerror(errno));
 						return 1;
 					}
+					total_written += chunk;
 					//copy
 						to_read -= chunk;
 				}
@@ -599,6 +604,7 @@ int main(int argc, char *argv[])
 						fprintf(stderr, "writing file %s failed: %s\n", output_file, strerror(errno));
 						return 1;
 					}
+					total_written += chunk;
 					to_write -= chunk;
 				}
 				if (verbose >= 3)
@@ -631,6 +637,43 @@ int main(int argc, char *argv[])
 		}
 		if (verbose)
 			printf("  ok\n");
+	}
+	if (total_written != kolyblk.SectorCount * SECTOR_SIZE) {
+		unsigned long long expected_bytes = kolyblk.SectorCount * SECTOR_SIZE;
+		if (verbose)
+			printf("\nWarning: wrote %llu bytes, expected %llu\n",
+					total_written, expected_bytes);
+		if (total_written < expected_bytes) {
+			to_write = expected_bytes - total_written;
+			--to_write; /* Single nul byte will be written last. */
+
+			/* Try to create a sparse output file */
+			err = fseeko(FOUT, to_write, SEEK_CUR);
+			if (err < 0) {
+				/* seek failed, maybe trying to write to pipe? */
+				if (verbose)
+					fprintf(stderr, "seek failed, falling back to a write loop.\n");
+				memset(tmp, 0, CHUNKSIZE);
+				while (to_write > 0) {
+					if (to_write > CHUNKSIZE)
+						chunk = CHUNKSIZE;
+					else
+						chunk = to_write;
+					if (fwrite(tmp, 1, chunk, FOUT) != chunk || ferror(FOUT)) {
+						fprintf(stderr, "writing file %s failed: %s\n", output_file, strerror(errno));
+						return 1;
+					}
+					to_write -= chunk;
+				}
+			}
+
+			if (fwrite("", 1, 1, FOUT) != 1 || ferror(FOUT)) {
+				fprintf(stderr, "Failed to write padding to file %s: %s\n", output_file, strerror(errno));
+				return 1;
+			}
+			if (verbose)
+				printf("Wrote %lld padding bytes\n", expected_bytes - total_written);
+		}
 	}
 	if (verbose)
 		printf("\nArchive successfully decompressed as %s\n", output_file);

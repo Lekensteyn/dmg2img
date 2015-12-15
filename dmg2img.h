@@ -30,6 +30,8 @@
 #define BT_COMMENT 0x7ffffffe
 #define BT_TERM 0xffffffff
 
+#define SECTOR_SIZE 0x200
+
 #ifdef __MINGW32__
 #define fseeko fseeko64
 #endif
