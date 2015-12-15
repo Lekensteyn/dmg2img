@@ -172,7 +172,7 @@ int main(int argc, char *argv[])
 	if (FOUT == NULL) {
 		printf("ERROR: Can't create output file %s\n", output_file);
 		fclose(FIN);
-		return 0;
+		return 1;
 	}
 	//parsing koly block
 	fseeko(FIN, -0x200, SEEK_END);
@@ -449,7 +449,7 @@ int main(int argc, char *argv[])
 					printf("zlib inflate (in_addr=%llu in_size=%llu out_addr=%llu out_size=%llu)\n", (unsigned long long)in_offs, (unsigned long long)in_size, (unsigned long long)out_offs, (unsigned long long)out_size);
 				if (inflateInit(&z) != Z_OK) {
 					printf("ERROR: Can't initialize inflate stream\n");
-					return 0;
+					return 1;
 				}
 				fseeko(FIN, in_offs + add_offs, SEEK_SET);
 				to_read = in_size;
@@ -464,7 +464,7 @@ int main(int argc, char *argv[])
 					if (ferror(FIN)) {
 						(void)inflateEnd(&z);
 						printf("ERROR: reading file %s \n", input_file);
-						return 0;
+						return 1;
 					}
 					if (z.avail_in == 0)
 						break;
@@ -482,13 +482,13 @@ int main(int argc, char *argv[])
 						case Z_MEM_ERROR:
 							(void)inflateEnd(&z);
 							printf("ERROR: Inflation failed\n");
-							return 0;
+							return 1;
 						}
 						to_write = CHUNKSIZE - z.avail_out;
 						if (fwrite(otmp, 1, to_write, FOUT) != to_write || ferror(FOUT)) {
 							(void)inflateEnd(&z);
 							printf("ERROR: writing file %s \n", output_file);
-							return 0;
+							return 1;
 						}
 					} while (z.avail_out == 0);
 				} while (err != Z_STREAM_END);
@@ -499,7 +499,7 @@ int main(int argc, char *argv[])
 					printf("bzip2 decompress (in_addr=%llu in_size=%llu out_addr=%llu out_size=%llu)\n", (unsigned long long)in_offs, (unsigned long long)in_size, (unsigned long long)out_offs, (unsigned long long)out_size);
 				if (BZ2_bzDecompressInit(&bz, 0, 0) != BZ_OK) {
 					printf("ERROR: Can't initialize inflate stream\n");
-					return 0;
+					return 1;
 				}
 				fseeko(FIN, in_offs + add_offs, SEEK_SET);
 				to_read = in_size;
@@ -514,7 +514,7 @@ int main(int argc, char *argv[])
 					if (ferror(FIN)) {
 						(void)BZ2_bzCompressEnd(&bz);
 						printf("ERROR: reading file %s \n", input_file);
-						return 0;
+						return 1;
 					}
 					if (bz.avail_in == 0)
 						break;
@@ -531,13 +531,13 @@ int main(int argc, char *argv[])
 						case BZ_MEM_ERROR:
 							(void)BZ2_bzDecompressEnd(&bz);
 							printf("ERROR: Inflation failed\n");
-							return 0;
+							return 1;
 						}
 						to_write = CHUNKSIZE - bz.avail_out;
 						if (fwrite(otmp, 1, to_write, FOUT) != to_write || ferror(FOUT)) {
 							(void)BZ2_bzDecompressEnd(&bz);
 							printf("ERROR: writing file %s \n", output_file);
-							return 0;
+							return 1;
 						}
 					} while (bz.avail_out == 0);
 				} while (err != BZ_STREAM_END);
@@ -553,11 +553,14 @@ int main(int argc, char *argv[])
 					to_write = fread(tmp, 1, chunk, FIN);
 					if (ferror(FIN) || to_write < chunk) {
 						printf("ERROR: reading file %s\n", input_file);
-						return 0;
+						return 1;
 					}
 					int bytes_written;
 					int read_from_input = adc_decompress(to_write, tmp, DECODEDSIZE, dtmp, &bytes_written);
-					fwrite(dtmp, 1, bytes_written, FOUT);
+					if (fwrite(dtmp, 1, bytes_written, FOUT) != bytes_written || ferror(FOUT)) {
+						printf("ERROR: writing file %s \n", output_file);
+						return 1;
+					}
 					to_read -= read_from_input;
 				}
 			} else if (block_type == BT_RAW) {
@@ -571,9 +574,12 @@ int main(int argc, char *argv[])
 					to_write = fread(tmp, 1, chunk, FIN);
 					if (ferror(FIN) || to_write < chunk) {
 						printf("ERROR: reading file %s \n", input_file);
-						return 0;
+						return 1;
 					}
-					fwrite(tmp, 1, chunk, FOUT);
+					if (fwrite(tmp, 1, chunk, FOUT) != chunk || ferror(FOUT)) {
+						printf("ERROR: writing file %s \n", output_file);
+						return 1;
+					}
 					//copy
 						to_read -= chunk;
 				}
@@ -587,7 +593,10 @@ int main(int argc, char *argv[])
 						chunk = CHUNKSIZE;
 					else
 						chunk = to_write;
-					fwrite(tmp, 1, chunk, FOUT);
+					if (fwrite(tmp, 1, chunk, FOUT) != chunk || ferror(FOUT)) {
+						printf("ERROR: writing file %s \n", output_file);
+						return 1;
+					}
 					to_write -= chunk;
 				}
 				if (verbose >= 3)
