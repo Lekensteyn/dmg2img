@@ -18,8 +18,8 @@
 #define _FILE_OFFSET_BITS 64
 #define VERSION "dmg2img v1.6.5 (c) vu1tur (to@vu1tur.eu.org)"
 #define USAGE "\
-Usage: dmg2img [-l] [-p N] [-s] [-v] [-V] [-d] <input.dmg> [<output.img>]\n\
-or     dmg2img [-l] [-p N] [-s] [-v] [-V] [-d] -i <input.dmg> -o <output.img>\n\n\
+Usage: dmg2img [-l] [-p N] [-s] [-v] [-V] [-d] <input.dmg> [<output.img> | -]\n\
+or     dmg2img [-l] [-p N] [-s] [-v] [-V] [-d] -i <input.dmg> -o <output.img | ->\n\n\
 Options: -s (silent) -v (verbose) -V (extremely verbose) -d (debug)\n\
          -l (list partitions) -p N (extract only partition N)"
 
@@ -145,13 +145,16 @@ int main(int argc, char *argv[])
 	if (!output_file) {
 		i = strlen(input_file);
 		output_file = (char *)malloc(i + 6);
-		if (output_file) {
-			strcpy(output_file, input_file);
-			if (strcasecmp(&output_file[i - 4], ".dmg"))
-				strcat(output_file, ".img");
-			else
-				strcpy(&output_file[i - 4], ".img");
-		}
+		if (!output_file)
+			mem_overflow();
+		strcpy(output_file, input_file);
+		if (strcasecmp(&output_file[i - 4], ".dmg"))
+			strcat(output_file, ".img");
+		else
+			strcpy(&output_file[i - 4], ".img");
+	} else if (!strcmp(output_file, "-")) {
+		/* treat NULL output_file as stdout */
+		output_file = "(stdout)";
 	}
 	if (verbose)
 		fprintf(stderr, "\n%s\n\n", VERSION);
@@ -207,7 +210,7 @@ int main(int argc, char *argv[])
 		error_dmg_corrupted();
 	}
 	if (verbose) {
-		if (input_file && (listparts || output_file))
+		if (input_file)
 			fprintf(stderr, "%s --> %s\n\n", input_file, listparts ? "(partition list)" : output_file);
 	}
 	if (debug)
@@ -350,10 +353,10 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	if (output_file)
-		FOUT = fopen(output_file, "wb");
+	if (!strcmp(output_file, "(stdout)"))
+		FOUT = stdout;
 	else
-		FOUT = NULL;
+		FOUT = fopen(output_file, "wb");
 	if (FOUT == NULL) {
 		fprintf(stderr, "Can't create output file %s: %s\n", output_file, strerror(errno));
 		fclose(FIN);
