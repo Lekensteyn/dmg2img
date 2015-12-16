@@ -148,7 +148,7 @@ int main(int argc, char *argv[])
 		if (!output_file)
 			mem_overflow();
 		strcpy(output_file, input_file);
-		if (strcasecmp(&output_file[i - 4], ".dmg"))
+		if (i < 4 || strcasecmp(&output_file[i - 4], ".dmg"))
 			strcat(output_file, ".img");
 		else
 			strcpy(&output_file[i - 4], ".img");
