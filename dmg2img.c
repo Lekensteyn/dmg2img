@@ -47,7 +47,7 @@ unsigned int offset;
 
 void mem_overflow()
 {
-	printf("ERROR: not enough memory\n");
+	fprintf(stderr, "not enough memory!\n");
 	if (FIN != NULL)
 		fclose(FIN);
 	if (FDBG != NULL)
@@ -59,7 +59,7 @@ void mem_overflow()
 
 void error_dmg_corrupted()
 {
-	printf("ERROR: dmg image is corrupted\n");
+	fprintf(stderr, "dmg image is corrupted!\n");
 	if (FIN != NULL)
 		fclose(FIN);
 	if (FDBG != NULL)
@@ -78,19 +78,19 @@ void percentage()
 		return;
 	s = offset / 0x28;
 	if (verbose >= 3)
-		printf("[%d] %6.2f%%\n", s, percent);
+		fprintf(stderr, "[%d] %6.2f%%\n", s, percent);
 	else if (verbose == 2) {
 		sprintf(sp, "[%d] %6.2f%%", s, percent);
 		for (i = 0; i < strlen(sp); i++)
-			printf("\b");
-		printf("%s", sp);
+			fprintf(stderr, "\b");
+		fprintf(stderr, "%s", sp);
 	} else {
 		sprintf(sp, "%6.2f%%", percent);
 		for (i = 0; i < strlen(sp); i++)
-			printf("\b");
-		printf("%s", sp);
+			fprintf(stderr, "\b");
+		fprintf(stderr, "%s", sp);
 	}
-	fflush(stdout);
+	fflush(stderr);
 }
 
 int main(int argc, char *argv[])
@@ -139,7 +139,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (!input_file) {
-		printf("\n%s\n\n%s\n\n", VERSION, USAGE);
+		fprintf(stderr, "\n%s\n\n%s\n\n", VERSION, USAGE);
 		return 0;
 	}
 	if (!output_file) {
@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
 		}
 	}
 	if (verbose)
-		printf("\n%s\n\n", VERSION);
+		fprintf(stderr, "\n%s\n\n", VERSION);
 	if (debug) {
 		FDBG = fopen("dmg2img.log", "wb");
 		if (FDBG == NULL) {
@@ -208,15 +208,15 @@ int main(int argc, char *argv[])
 	}
 	if (verbose) {
 		if (input_file && (listparts || output_file))
-			printf("%s --> %s\n\n", input_file, listparts ? "(partition list)" : output_file);
+			fprintf(stderr, "%s --> %s\n\n", input_file, listparts ? "(partition list)" : output_file);
 	}
 	if (debug)
-		printf("Debug info will be written to dmg2img.log\n\n");
+		fprintf(stderr, "Debug info will be written to dmg2img.log\n\n");
 
 	if (kolyblk.XMLOffset != 0 && kolyblk.XMLLength != 0) {
 		//We have a plist to parse
 			if (verbose > 1)
-			printf("reading property list, %llu bytes from address %llu ...\n", (unsigned long long)kolyblk.XMLLength, (unsigned long long)kolyblk.XMLOffset);
+			fprintf(stderr, "reading property list, %llu bytes from address %llu ...\n", (unsigned long long)kolyblk.XMLLength, (unsigned long long)kolyblk.XMLOffset);
 
 		plist = (char *)malloc(kolyblk.XMLLength + 1);
 
@@ -265,13 +265,13 @@ int main(int argc, char *argv[])
 			base64data[data_size] = '\0';
 			memcpy(base64data, data_begin, data_size);
 			if (verbose >= 3)
-				printf("%s\n", base64data);
+				fprintf(stderr, "%s\n", base64data);
 			cleanup_base64(base64data, data_size);
 			decode_base64(base64data, strlen(base64data), base64data, &tmplen);
 			fill_mishblk(base64data, &parts[i]);
 			if (parts[i].BlocksSignature != 0x6D697368) {
 				if (verbose >= 3)
-					printf("Unrecognized block signature %08X", parts[i].BlocksSignature);
+					fprintf(stderr, "Unrecognized block signature %08X", parts[i].BlocksSignature);
 				break;
 			}
 
@@ -289,11 +289,11 @@ int main(int argc, char *argv[])
 			memset(partname, 0, 255);
 			memcpy(partname, partname_begin, partname_end - partname_begin);
 			if (verbose >= 2) {
-				printf("partition %d: begin=%d, size=%d, decoded=%d\n", i, (int)(data_begin - blkx), data_size, tmplen);
+				fprintf(stderr, "partition %d: begin=%d, size=%d, decoded=%d\n", i, (int)(data_begin - blkx), data_size, tmplen);
 				if (listparts)
-					printf("             %s\n", partname);
+					fprintf(stderr, "             %s\n", partname);
 			} else if (listparts)
-				printf("partition %d: %s\n", i, partname);
+				fprintf(stderr, "partition %d: %s\n", i, partname);
 		}
 	} else if (kolyblk.RsrcForkOffset != 0 && kolyblk.RsrcForkLength != 0) {
 		//We have a binary resource fork to parse
@@ -327,7 +327,7 @@ int main(int argc, char *argv[])
 				mem_overflow();
 			memcpy(parts[i].Data, mish_begin + 0xCC, 0x28 * mishblk.BlocksRunCount);
 			if (verbose >= 2)
-				printf("partition %d: begin=%d, size=%" PRIu32 "\n", i, (int)(mish_begin - plist), 0xCC + mishblk.BlocksRunCount * 0x28);
+				fprintf(stderr, "partition %d: begin=%d, size=%" PRIu32 "\n", i, (int)(mish_begin - plist), 0xCC + mishblk.BlocksRunCount * 0x28);
 		}
 	} else {
 		error_dmg_corrupted();
@@ -335,7 +335,7 @@ int main(int argc, char *argv[])
 	
 	if (listparts || extractpart > partnum-1) {
 		if (extractpart > partnum-1)
-			printf("partition %d not found\n", extractpart);
+			fprintf(stderr, "partition %d not found\n", extractpart);
 		
 		for (i = 0; i < partnum; i++)
 			if (parts[i].Data != NULL)
@@ -361,7 +361,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (verbose)
-		printf("\ndecompressing:\n");
+		fprintf(stderr, "\ndecompressing:\n");
 
 	tmp = (Bytef *) malloc(CHUNKSIZE);
 	otmp = (Bytef *) malloc(CHUNKSIZE);
@@ -379,12 +379,12 @@ int main(int argc, char *argv[])
 
 	for (i = extractpart==-1?0:extractpart; i < (extractpart==-1?partnum:extractpart+1) && in_offs <= kolyblk.DataForkLength - kolyblk.DataForkOffset; i++) {
 		if (verbose)
-			printf("opening partition %d ...           ", i);
+			fprintf(stderr, "opening partition %d ...           ", i);
 		if (verbose >= 3)
-			printf("\n");
+			fprintf(stderr, "\n");
 		else if (verbose)
-			printf("         ");
-		fflush(stdout);
+			fprintf(stderr, "         ");
+		fflush(stderr);
 		offset = 0;
 		add_offs = in_offs_add;
 		block_type = 0;
@@ -448,11 +448,11 @@ int main(int argc, char *argv[])
 				bi++;
 			}
 			if (verbose >= 3)
-				printf("offset = %u  block_type = 0x%08x\n", offset, block_type);
+				fprintf(stderr, "offset = %u  block_type = 0x%08x\n", offset, block_type);
 
 			if (block_type == BT_ZLIB) {
 				if (verbose >= 3)
-					printf("zlib inflate (in_addr=%llu in_size=%llu out_addr=%llu out_size=%llu)\n", (unsigned long long)in_offs, (unsigned long long)in_size, (unsigned long long)out_offs, (unsigned long long)out_size);
+					fprintf(stderr, "zlib inflate (in_addr=%llu in_size=%llu out_addr=%llu out_size=%llu)\n", (unsigned long long)in_offs, (unsigned long long)in_size, (unsigned long long)out_offs, (unsigned long long)out_size);
 				err = inflateInit(&z);
 				if (err != Z_OK) {
 					fprintf(stderr, "Can't initialize inflate stream: %d\n", err);
@@ -504,7 +504,7 @@ int main(int argc, char *argv[])
 				(void)inflateEnd(&z);
 			} else if (block_type == BT_BZLIB) {
 				if (verbose >= 3)
-					printf("bzip2 decompress (in_addr=%llu in_size=%llu out_addr=%llu out_size=%llu)\n", (unsigned long long)in_offs, (unsigned long long)in_size, (unsigned long long)out_offs, (unsigned long long)out_size);
+					fprintf(stderr, "bzip2 decompress (in_addr=%llu in_size=%llu out_addr=%llu out_size=%llu)\n", (unsigned long long)in_offs, (unsigned long long)in_size, (unsigned long long)out_offs, (unsigned long long)out_size);
 				if (BZ2_bzDecompressInit(&bz, 0, 0) != BZ_OK) {
 					fprintf(stderr, "Can't initialize inflate stream: %s\n", strerror(errno));
 					return 1;
@@ -554,7 +554,7 @@ int main(int argc, char *argv[])
 				(void)BZ2_bzDecompressEnd(&bz);
 			} else if (block_type == BT_ADC) {
 				if (verbose >= 3)
-					printf("ADC decompress (in_addr=%llu in_size=%llu out_addr=%llu out_size=%llu)\n", (unsigned long long)in_offs, (unsigned long long)in_size, (unsigned long long)out_offs, (unsigned long long)out_size);
+					fprintf(stderr, "ADC decompress (in_addr=%llu in_size=%llu out_addr=%llu out_size=%llu)\n", (unsigned long long)in_offs, (unsigned long long)in_size, (unsigned long long)out_offs, (unsigned long long)out_size);
 				fseeko(FIN, in_offs + add_offs, SEEK_SET);
 				to_read = in_size;
 				while (to_read > 0) {
@@ -595,7 +595,7 @@ int main(int argc, char *argv[])
 						to_read -= chunk;
 				}
 				if (verbose >= 3)
-					printf("copy data  (in_addr=%llu in_size=%llu out_size=%llu)\n", (unsigned long long)in_offs, (unsigned long long)in_size, (unsigned long long)out_size);
+					fprintf(stderr, "copy data  (in_addr=%llu in_size=%llu out_size=%llu)\n", (unsigned long long)in_offs, (unsigned long long)in_size, (unsigned long long)out_size);
 			} else if (block_type == BT_ZERO || block_type == BT_IGNORE) {
 				memset(tmp, 0, CHUNKSIZE);
 				to_write = out_size;
@@ -612,11 +612,11 @@ int main(int argc, char *argv[])
 					to_write -= chunk;
 				}
 				if (verbose >= 3)
-					printf("null bytes (out_size=%llu)\n",
+					fprintf(stderr, "null bytes (out_size=%llu)\n",
 						   (unsigned long long)out_size);
 			} else if (block_type == BT_COMMENT) {
 				if (verbose >= 3)
-					printf("0x%08x (in_addr=%llu in_size=%llu out_addr=%llu out_size=%llu) comment %s\n", block_type, (unsigned long long)in_offs,
+					fprintf(stderr, "0x%08x (in_addr=%llu in_size=%llu out_addr=%llu out_size=%llu) comment %s\n", block_type, (unsigned long long)in_offs,
 						   (unsigned long long)in_size,
 						   (unsigned long long)out_offs,
 						   (unsigned long long)out_size, reserved);
@@ -628,10 +628,10 @@ int main(int argc, char *argv[])
 					in_offs_add = kolyblk.DataForkOffset;
 
 				if (verbose >= 3)
-					printf("terminator\n");
+					fprintf(stderr, "terminator\n");
 			} else {
 				if (verbose)
-					printf("\n Unsupported or corrupted block found: %d\n", block_type);
+					fprintf(stderr, "\n Unsupported or corrupted block found: %d\n", block_type);
 			}
 			offset += 0x28;
 			if (verbose) {
@@ -640,12 +640,12 @@ int main(int argc, char *argv[])
 			}
 		}
 		if (verbose)
-			printf("  ok\n");
+			fprintf(stderr, "  ok\n");
 	}
 	if (total_written != kolyblk.SectorCount * SECTOR_SIZE) {
 		unsigned long long expected_bytes = kolyblk.SectorCount * SECTOR_SIZE;
 		if (verbose)
-			printf("\nWarning: wrote %llu bytes, expected %llu\n",
+			fprintf(stderr, "\nWarning: wrote %llu bytes, expected %llu\n",
 					total_written, expected_bytes);
 		if (total_written < expected_bytes) {
 			to_write = expected_bytes - total_written;
@@ -676,11 +676,11 @@ int main(int argc, char *argv[])
 				return 1;
 			}
 			if (verbose)
-				printf("Wrote %lld padding bytes\n", expected_bytes - total_written);
+				fprintf(stderr, "Wrote %lld padding bytes\n", expected_bytes - total_written);
 		}
 	}
 	if (verbose)
-		printf("\nArchive successfully decompressed as %s\n", output_file);
+		fprintf(stderr, "\nArchive successfully decompressed as %s\n", output_file);
 
 	if (tmp != NULL)
 		free(tmp);

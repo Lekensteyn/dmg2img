@@ -48,16 +48,16 @@ int print_mountcmd(char *filename)
 			memcpy(&gpt_ent_array[i], &gpt_entry, sizeof(struct _gpt_entry));
 		}
 
-		printf("\nImage appears to have GUID Partition Table with %d HFS+ partition%s.\n", pn, pn == 1 ? "" : "s");
+		fprintf(stderr, "\nImage appears to have GUID Partition Table with %d HFS+ partition%s.\n", pn, pn == 1 ? "" : "s");
 		if (pn > 0) {
-			printf("You should be able to mount %s [as root] by:\n\n", pn == 1 ? "it" : "them");
-			printf("modprobe hfsplus\n");
+			fprintf(stderr, "You should be able to mount %s [as root] by:\n\n", pn == 1 ? "it" : "them");
+			fprintf(stderr, "modprobe hfsplus\n");
 			for (i = 0; i < pn; i++) {
 				sprintf(tmp, " (for partition %d)", i + 1);
-				printf("mount -t hfsplus -o loop,offset=%" PRIu64 " %s /mnt%s\n", gpt_ent_array[i].ent_lba_start * 0x200, filename, pn > 1 ? tmp : "");
+				fprintf(stderr, "mount -t hfsplus -o loop,offset=%" PRIu64 " %s /mnt%s\n", gpt_ent_array[i].ent_lba_start * 0x200, filename, pn > 1 ? tmp : "");
 			}
 		} else {
-			printf("\
+			fprintf(stderr, "\
 But you might be able to mount the image [as root] by:\n\n\
 modprobe hfsplus\n\
 mount -t hfsplus -o loop %s /mnt\n\n", filename);
@@ -67,7 +67,7 @@ mount -t hfsplus -o loop %s /mnt\n\n", filename);
 
 		free(gpt_ent_array);
 	} else {
-		printf("\n\
+		fprintf(stderr, "\n\
 You should be able to mount the image [as root] by:\n\n\
 modprobe hfsplus\n\
 mount -t hfsplus -o loop %s /mnt\n\n", filename);
