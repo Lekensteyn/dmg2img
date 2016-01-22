@@ -645,7 +645,7 @@ int main(int argc, char *argv[])
 		if (verbose)
 			fprintf(stderr, "  ok\n");
 	}
-	if (total_written != kolyblk.SectorCount * SECTOR_SIZE) {
+	if (extractpart != -1 && total_written != kolyblk.SectorCount * SECTOR_SIZE) {
 		unsigned long long expected_bytes = kolyblk.SectorCount * SECTOR_SIZE;
 		if (verbose)
 			fprintf(stderr, "\nWarning: wrote %llu bytes, expected %llu\n",
