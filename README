@@ -111,5 +111,14 @@ CHANGELOG:
 
 1.6.5  23 July 2013
         * Fixed a bug in handling some types of dmg files
-		  
+
+1.6.6  06 February 2017
+        * Fixed a crash on invalid block signature (thanks to Peter Wu)
+
+1.6.7  09 February 2017
+        * Fixed buffer underrun (thanks to Peter Wu)
+        * Avoid truncating .img file when run to list partition 
+          (thanks to Frederic Germain)
+        * Small fixes and cleanup
+
 http://vu1tur.eu.org/dmg2img

@@ -16,7 +16,7 @@
  */
 
 #define _FILE_OFFSET_BITS 64
-#define VERSION "dmg2img v1.6.6 (c) vu1tur (to@vu1tur.eu.org)"
+#define VERSION "dmg2img v1.6.7 (c) vu1tur (to@vu1tur.eu.org)"
 #define USAGE "\
 Usage: dmg2img [-l] [-p N] [-s] [-v] [-V] [-d] <input.dmg> [<output.img>]\n\
 or     dmg2img [-l] [-p N] [-s] [-v] [-V] [-d] -i <input.dmg> -o <output.img>\n\n\
@@ -145,7 +145,7 @@ int main(int argc, char *argv[])
 		output_file = (char *)malloc(i + 6);
 		if (output_file) {
 			strcpy(output_file, input_file);
-			if (strcasecmp(&output_file[i - 4], ".dmg"))
+			if (i < 4 || strcasecmp(&output_file[i - 4], ".dmg"))
 				strcat(output_file, ".img");
 			else
 				strcpy(&output_file[i - 4], ".img");
@@ -163,17 +163,9 @@ int main(int argc, char *argv[])
 	FIN = fopen(input_file, "rb");
 	if (FIN == NULL) {
 		printf("ERROR: Can't open input file %s\n", input_file);
-		return 0;
+		return 1;
 	}
-	if (output_file)
-		FOUT = fopen(output_file, "wb");
-	else
-		FOUT = NULL;
-	if (FOUT == NULL) {
-		printf("ERROR: Can't create output file %s\n", output_file);
-		fclose(FIN);
-		return 0;
-	}
+
 	//parsing koly block
 	fseeko(FIN, -0x200, SEEK_END);
 	read_kolyblk(FIN, &kolyblk);
@@ -214,7 +206,7 @@ int main(int argc, char *argv[])
 		error_dmg_corrupted();
 	}
 	if (verbose) {
-		if (input_file && output_file)
+		if (input_file && (output_file || listparts))
 			printf("%s --> %s\n\n", input_file, listparts ? "(partition list)" : output_file);
 	}
 	if (debug)
@@ -356,6 +348,16 @@ int main(int argc, char *argv[])
 		
 		return 0;
 	}
+
+	if (output_file)
+		FOUT = fopen(output_file, "wb");
+	else
+		FOUT = NULL;
+	if (FOUT == NULL) {
+		printf("ERROR: Can't create output file %s\n", output_file);
+		fclose(FIN);
+		return 1;
+	}
 		
 	if (verbose)
 		printf("\ndecompressing:\n");
@@ -374,7 +376,7 @@ int main(int argc, char *argv[])
 
 	in_offs = add_offs = in_offs_add = kolyblk.DataForkOffset;
 
-	for (i = extractpart==-1?0:extractpart; i < (extractpart==-1?partnum:extractpart+1) && in_offs < kolyblk.DataForkLength - kolyblk.DataForkOffset; i++) {
+	for (i = extractpart==-1?0:extractpart; i < (extractpart==-1?partnum:extractpart+1) && in_offs <= kolyblk.DataForkLength - kolyblk.DataForkOffset; i++) {
 		if (verbose)
 			printf("opening partition %d ...           ", i);
 		if (verbose >= 3)
@@ -450,7 +452,7 @@ int main(int argc, char *argv[])
 					printf("zlib inflate (in_addr=%llu in_size=%llu out_addr=%llu out_size=%llu)\n", (unsigned long long)in_offs, (unsigned long long)in_size, (unsigned long long)out_offs, (unsigned long long)out_size);
 				if (inflateInit(&z) != Z_OK) {
 					printf("ERROR: Can't initialize inflate stream\n");
-					return 0;
+					return 1;
 				}
 				fseeko(FIN, in_offs + add_offs, SEEK_SET);
 				to_read = in_size;
@@ -465,7 +467,7 @@ int main(int argc, char *argv[])
 					if (ferror(FIN)) {
 						(void)inflateEnd(&z);
 						printf("ERROR: reading file %s \n", input_file);
-						return 0;
+						return 1;
 					}
 					if (z.avail_in == 0)
 						break;
@@ -483,13 +485,13 @@ int main(int argc, char *argv[])
 						case Z_MEM_ERROR:
 							(void)inflateEnd(&z);
 							printf("ERROR: Inflation failed\n");
-							return 0;
+							return 1;
 						}
 						to_write = CHUNKSIZE - z.avail_out;
 						if (fwrite(otmp, 1, to_write, FOUT) != to_write || ferror(FOUT)) {
 							(void)inflateEnd(&z);
 							printf("ERROR: writing file %s \n", output_file);
-							return 0;
+							return 1;
 						}
 					} while (z.avail_out == 0);
 				} while (err != Z_STREAM_END);
@@ -500,7 +502,7 @@ int main(int argc, char *argv[])
 					printf("bzip2 decompress (in_addr=%llu in_size=%llu out_addr=%llu out_size=%llu)\n", (unsigned long long)in_offs, (unsigned long long)in_size, (unsigned long long)out_offs, (unsigned long long)out_size);
 				if (BZ2_bzDecompressInit(&bz, 0, 0) != BZ_OK) {
 					printf("ERROR: Can't initialize inflate stream\n");
-					return 0;
+					return 1;
 				}
 				fseeko(FIN, in_offs + add_offs, SEEK_SET);
 				to_read = in_size;
@@ -515,7 +517,7 @@ int main(int argc, char *argv[])
 					if (ferror(FIN)) {
 						(void)BZ2_bzCompressEnd(&bz);
 						printf("ERROR: reading file %s \n", input_file);
-						return 0;
+						return 1;
 					}
 					if (bz.avail_in == 0)
 						break;
@@ -532,13 +534,13 @@ int main(int argc, char *argv[])
 						case BZ_MEM_ERROR:
 							(void)BZ2_bzDecompressEnd(&bz);
 							printf("ERROR: Inflation failed\n");
-							return 0;
+							return 1;
 						}
 						to_write = CHUNKSIZE - bz.avail_out;
 						if (fwrite(otmp, 1, to_write, FOUT) != to_write || ferror(FOUT)) {
 							(void)BZ2_bzDecompressEnd(&bz);
 							printf("ERROR: writing file %s \n", output_file);
-							return 0;
+							return 1;
 						}
 					} while (bz.avail_out == 0);
 				} while (err != BZ_STREAM_END);
@@ -554,7 +556,7 @@ int main(int argc, char *argv[])
 					to_write = fread(tmp, 1, chunk, FIN);
 					if (ferror(FIN) || to_write < chunk) {
 						printf("ERROR: reading file %s\n", input_file);
-						return 0;
+						return 1;
 					}
 					int bytes_written;
 					int read_from_input = adc_decompress(to_write, tmp, DECODEDSIZE, dtmp, &bytes_written);
@@ -572,7 +574,7 @@ int main(int argc, char *argv[])
 					to_write = fread(tmp, 1, chunk, FIN);
 					if (ferror(FIN) || to_write < chunk) {
 						printf("ERROR: reading file %s \n", input_file);
-						return 0;
+						return 1;
 					}
 					fwrite(tmp, 1, chunk, FOUT);
 					//copy
