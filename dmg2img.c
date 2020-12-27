@@ -32,6 +32,9 @@ Options: -s (silent) -v (verbose) -V (extremely verbose) -d (debug)\n\
 #include "dmg2img.h"
 #include "base64.h"
 #include "mntcmd.h"
+#ifdef HAVE_LZFSE
+#include <lzfse.h>
+#endif
 
 /* take chunk size to be 1 MByte so it will work even with little RAM */
 #define CHUNKSIZE 0x100000
@@ -114,6 +117,12 @@ int main(int argc, char *argv[])
 	char sztype[64] = "";
 	unsigned int block_type, dw_reserved;
 	unsigned long long total_written = 0;
+#ifdef HAVE_LZFSE
+	/* The reference lzfse tool assumes no more than 4x growth, that seems a
+	 * reasonable default. It will be increased as needed. */
+	size_t lzfse_outsize = 4 * CHUNKSIZE;
+	uint8_t *lzfse_out = NULL;
+#endif  /* HAVE_LZFSE */
 
 	for (i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "-s"))
@@ -377,6 +386,11 @@ int main(int argc, char *argv[])
 	bz.bzalloc = NULL;
 	bz.bzfree = NULL;
 	bz.opaque = NULL;
+#ifdef HAVE_LZFSE
+	lzfse_out = (uint8_t *) malloc(lzfse_outsize);
+	if (!lzfse_out)
+		mem_overflow();
+#endif
 
 	in_offs = add_offs = in_offs_add = kolyblk.DataForkOffset;
 
@@ -417,6 +431,9 @@ int main(int argc, char *argv[])
 					break;
 				case BT_BZLIB:
 					strcpy(sztype, "bzlib");
+					break;
+				case BT_LZFSE:
+					strcpy(sztype, "lzfse");
 					break;
 				case BT_ZERO:
 					strcpy(sztype, "zero");
@@ -555,6 +572,53 @@ int main(int argc, char *argv[])
 				} while (err != BZ_STREAM_END);
 
 				(void)BZ2_bzDecompressEnd(&bz);
+			} else if (block_type == BT_LZFSE) {
+#ifdef HAVE_LZFSE
+				if (verbose >= 3)
+					fprintf(stderr, "lzfse decompress (in_addr=%llu in_size=%llu out_addr=%llu out_size=%llu)\n", (unsigned long long)in_offs, (unsigned long long)in_size, (unsigned long long)out_offs, (unsigned long long)out_size);
+
+				fseeko(FIN, in_offs + add_offs, SEEK_SET);
+				to_read = in_size;
+				if (to_read) {
+					if (to_read > CHUNKSIZE) {
+						if (verbose)
+							fprintf(stderr, "Truncated %zu to %u, data might be lost\n", to_read, CHUNKSIZE);
+						to_read = CHUNKSIZE;
+					}
+					to_read = fread(tmp, 1, to_read, FIN);
+					if (ferror(FIN)) {
+						fprintf(stderr, "reading file %s failed: %s\n", input_file, strerror(errno));
+						return 1;
+					}
+					if (to_read == 0)
+						break;
+					while (1) {
+						to_write = lzfse_decode_buffer(lzfse_out, lzfse_outsize, tmp, to_read, NULL);
+						if (to_write == 0) {
+							fprintf(stderr, "decompression failed\n");
+							return 1;
+						}
+						if (to_write == lzfse_outsize) {
+							if (verbose >= 3)
+								fprintf(stderr, "Output buffer for LZFSE was too small, doubling size.\n");
+							lzfse_outsize <<= 1;
+							lzfse_out = (uint8_t *) realloc(lzfse_out, lzfse_outsize);
+							if (!lzfse_out)
+								mem_overflow();
+						} else {
+							break;
+						}
+					}
+					if (fwrite(lzfse_out, 1, to_write, FOUT) != to_write || ferror(FOUT)) {
+						fprintf(stderr, "writing file %s failed: %s\n", output_file, strerror(errno));
+						return 1;
+					}
+					total_written += to_write;
+				}
+#else   /* ! HAVE_LZFSE */
+				if (verbose)
+					fprintf(stderr, "\n LZFSE block found, but no support is compiled in. Data will be corrupted!\n");
+#endif  /* ! HAVE_LZFSE */
 			} else if (block_type == BT_ADC) {
 				if (verbose >= 3)
 					fprintf(stderr, "ADC decompress (in_addr=%llu in_size=%llu out_addr=%llu out_size=%llu)\n", (unsigned long long)in_offs, (unsigned long long)in_size, (unsigned long long)out_offs, (unsigned long long)out_size);
@@ -634,7 +698,7 @@ int main(int argc, char *argv[])
 					fprintf(stderr, "terminator\n");
 			} else {
 				if (verbose)
-					fprintf(stderr, "\n Unsupported or corrupted block found: %d\n", block_type);
+					fprintf(stderr, "\n Unsupported or corrupted block found: 0x%08x\n", block_type);
 			}
 			offset += 0x28;
 			if (verbose) {
@@ -691,6 +755,9 @@ int main(int argc, char *argv[])
 		free(otmp);
 	if (dtmp != NULL)
 		free(dtmp);
+#ifdef HAVE_LZFSE
+	free(lzfse_out);
+#endif  /* HAVE_LZFSE */
 	for (i = 0; i < partnum; i++) {
 		if (parts[i].Data != NULL)
 			free(parts[i].Data);

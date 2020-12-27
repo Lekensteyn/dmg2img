@@ -5,6 +5,11 @@ BIN_DIR = ${DESTDIR}/usr/bin
 
 all: dmg2img vfdecrypt
 
+ifeq ($(HAVE_LZFSE),1)
+override CFLAGS := $(CFLAGS) -DHAVE_LZFSE
+override LDFLAGS := $(LDFLAGS) -llzfse
+endif
+
 dmg2img: dmg2img.c dmg2img.h mntcmd.h gpt.h dmg2img.o base64.o adc.o
 	$(CC) -o dmg2img dmg2img.o base64.o adc.o -lz -lbz2 $(LDFLAGS)
 
